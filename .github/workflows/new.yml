@@ -2,7 +2,7 @@ name: Send Comment Details on PR Approval
 
 on:
   pull_request_review:
-    types: [submitted]  # Trigger on submitted reviews
+    # Trigger on submitted reviews
     # You can add a condition to filter for approvals
     # For example, using `if: github.event.review.state == 'approved'` inside jobs.
 
