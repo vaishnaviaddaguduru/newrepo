@@ -28,4 +28,4 @@ jobs:
             
             View it on GitHub: ${{ github.event.comment.html_url }}
           to: vaishnaviaddaguduru@gmail.com
-          from: vaishnavia@gmail.com
+          from: vaishnaviaddaguduru@gmail.com
