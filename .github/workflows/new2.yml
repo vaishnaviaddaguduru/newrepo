@@ -1,0 +1,46 @@
+name: Send Branch Comments via Email
+
+on:
+  push:
+    branches:
+      - master    # Change to the branches you want to monitor
+      - develop  # You can add more branches here
+
+jobs:
+  send-comment-email:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v2
+
+      - name: Fetch Commit Comments
+        id: fetch_comments
+        run: |
+          # Fetch the latest commit comments for the branch
+          BRANCH_NAME=${{ github.ref_name }}  # This captures the name of the branch
+          COMMENTS=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            https://api.github.com/repos/${{ github.repository }}/commits/${{ github.sha }}/comments | jq -r '.[].body' | tr '\n' '\n\n')
+
+          # Save the comments to an environment variable
+          echo "COMMENTS=$COMMENTS" >> $GITHUB_ENV
+
+      - name: Send Email Notification
+        if: ${{ env.COMMENTS != '' }}  # Only send if there are comments
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com  # Change to your SMTP server
+          server_port: 465
+          username: ${{ secrets.EMAIL_USERNAME }}
+          password: ${{ secrets.EMAIL_PASSWORD }}
+          to: vaishnaviaddaguduru@gmail.com  # Change to the recipient's email address
+          subject: "New Comments on Branch: ${{ github.ref_name }}"
+          body: |
+            New comments have been made on the branch: ${{ github.ref_name }}.
+
+            **Comments on the latest commit**:
+            ${{ env.COMMENTS }}
+
+            You can view the branch here: https://github.com/${{ github.repository }}/commits/${{ github.ref_name }}
+
+          from: ${{ secrets.EMAIL_USERNAME }}
