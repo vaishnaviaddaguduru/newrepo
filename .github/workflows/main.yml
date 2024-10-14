@@ -1,8 +1,10 @@
 name: PR Comment Notification
 
 on:
-  issue_comment:
+ issue_comment:
     types: [created]
+ pull_request:
+    types: [closed]
 
 jobs:
   send-comment-email:
