@@ -1,14 +1,12 @@
-name: Send Comment Details on PR Approval
+name: Send PR Owner Branch Comment Details via Email
 
 on:
-  pull_request_review:
-    # Trigger on submitted reviews
-    # You can add a condition to filter for approvals
-    # For example, using `if: github.event.review.state == 'approved'` inside jobs.
+  issue_comment:
+    types: [created]  # Trigger when a new comment is made
 
 jobs:
   send-comment-email:
-    if: ${{ github.event.review.state == 'approved' }}  # Only run if the review is approved
+    if: ${{ github.event.issue.pull_request }}  # Only run if the comment is on a PR
     runs-on: ubuntu-latest
 
     steps:
@@ -16,35 +14,42 @@ jobs:
         id: pr_info
         run: |
           # Get the PR details
-          PR_NUMBER=${{ github.event.pull_request.number }}
-          BRANCH_NAME=${{ github.event.pull_request.head.ref }}
-          BRANCH_OWNER=${{ github.event.pull_request.user.login }}
-          
+          PR_NUMBER=${{ github.event.issue.number }}
+          BRANCH_NAME=${{ github.event.issue.pull_request.head.ref }}
+          BRANCH_OWNER=${{ github.event.issue.pull_request.user.login }}
+
           # Output to GitHub environment variables
           echo "PR_NUMBER=$PR_NUMBER" >> $GITHUB_ENV
           echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
           echo "BRANCH_OWNER=$BRANCH_OWNER" >> $GITHUB_ENV
 
-          # Fetch the comments on the PR
+          # Fetch the comments on the PR using the GitHub API
           COMMENTS=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            https://api.github.com/repos/${{ github.repository }}/issues/$PR_NUMBER/comments)
+            https://api.github.com/repos/${{ github.repository }}/issues/$PR_NUMBER/comments | jq -r '.[].body' | tr '\n' '\n\n')
 
           # Save the comments to an environment variable
           echo "COMMENTS=$COMMENTS" >> $GITHUB_ENV
 
+      - name: Debug Info
+        run: |
+          echo "PR_NUMBER: ${{ env.PR_NUMBER }}"
+          echo "BRANCH_NAME: ${{ env.BRANCH_NAME }}"
+          echo "BRANCH_OWNER: ${{ env.BRANCH_OWNER }}"
+          echo "COMMENTS: ${{ env.COMMENTS }}"
+
       - name: Send Email Notification
         uses: dawidd6/action-send-mail@v3
         with:
-          server_address: smtp.gmail.com  # Or your chosen SMTP server
+          server_address: smtp.gmail.com  # Change to your SMTP server
           server_port: 465
           username: ${{ secrets.EMAIL_USERNAME }}
           password: ${{ secrets.EMAIL_PASSWORD }}
-          to: vaishnaviaddaguduru@gmail.com  # The recipient of the email
-          subject: "PR #${{ env.PR_NUMBER }} Approved (Branch: ${{ env.BRANCH_NAME }}, Owner: ${{ env.BRANCH_OWNER }})"
+          to: vaishnaviaddaguduru@gmail.com  # Change to the recipient's email address
+          subject: "New Comment on PR #${{ env.PR_NUMBER }} (Branch: ${{ env.BRANCH_NAME }}, Owner: ${{ env.BRANCH_OWNER }})"
           body: |
-            The pull request #${{ env.PR_NUMBER }} has been approved.
+            A new comment has been made on the pull request in branch: ${{ env.BRANCH_NAME }}.
 
-            **Branch Name**: ${{ env.BRANCH_NAME }}
+            **Pull Request Number**: ${{ env.PR_NUMBER }}
             **Branch Owner**: ${{ env.BRANCH_OWNER }}
 
             **Comments on the Pull Request**:
