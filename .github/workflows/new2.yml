@@ -1,9 +1,9 @@
-name: Send Branch Comments via Email
+name: Send Commit Comments via Email
 
 on:
   push:
     branches:
-      - master    # Change to the branches you want to monitor
+           # Change to the branches you want to monitor
       - develop  # You can add more branches here
 
 jobs:
@@ -17,10 +17,13 @@ jobs:
       - name: Fetch Commit Comments
         id: fetch_comments
         run: |
-          # Fetch the latest commit comments for the branch
-          BRANCH_NAME=${{ github.ref_name }}  # This captures the name of the branch
+          # Get the current branch name and commit SHA
+          BRANCH_NAME=${{ github.ref_name }}
+          COMMIT_SHA=${{ github.sha }}
+          
+          # Fetch the comments for the latest commit on the current branch
           COMMENTS=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            https://api.github.com/repos/${{ github.repository }}/commits/${{ github.sha }}/comments | jq -r '.[].body' | tr '\n' '\n\n')
+            https://api.github.com/repos/${{ github.repository }}/commits/$COMMIT_SHA/comments | jq -r '.[].body' | tr '\n' '\n\n')
 
           # Save the comments to an environment variable
           echo "COMMENTS=$COMMENTS" >> $GITHUB_ENV
