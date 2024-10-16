@@ -1,0 +1,79 @@
+trigger:
+- develop  # Adjust this to the branch you want to trigger the pipeline
+- master
+resources:
+  repositories:
+    - repository: GitHubRepo
+      type: GitHub
+      ref: develop
+      endpoint: github.com
+      name: vaishnaviaddaguduru/newrepo
+stages:      
+- stage: Fetch_And_Send_PR_Comments
+  pool:
+    vmImage: windows-latest
+  jobs:
+  - job: PlaceholderJob
+    steps:
+    - script: echo "This is a placeholder job to satisfy the dependency requirement."
+      displayName: 'Placeholder Job'
+  - job: FetchAndSendComments
+    steps:
+    - checkout: self # checking out Azure repo
+    - checkout: GitHubRepo # checking out GitHub repo
+    - task: PowerShell@2
+      displayName: 'Fetch Pull Request Details'
+      inputs:
+        targetType: 'inline'
+        script: |
+          $url = "$(System.CollectionUri)$(System.TeamProject)/_apis/git/repositories/$(Build.Repository.Name)/pullRequests/$(System.PullRequest.PullRequestId)?api-version=6.0"
+          $headers = @{
+            "Content-Type" = "application/json"
+            "Authorization" = "Bearer $(System.AccessToken)"
+          }
+          $response = Invoke-RestMethod -Uri $url -Headers $headers -Method Get
+          $response | ConvertTo-Json -Depth 100 | Out-File -FilePath pullRequestDetails.json
+          Write-Output "##vso[task.setvariable variable=pullRequestDetails]$(Get-Content -Raw -Path pullRequestDetails.json)"
+    - task: PowerShell@2
+      displayName: 'Fetch Pull Request Comments'
+      inputs:
+        targetType: 'inline'
+        script: |
+          $url = "$(System.CollectionUri)$(System.TeamProject)/_apis/git/repositories/$(Build.Repository.Name)/pullRequests/$(System.PullRequest.PullRequestId)/threads?api-version=6.0"
+          $headers = @{
+            "Content-Type" = "application/json"
+            "Authorization" = "Bearer $(System.AccessToken)"
+          }
+          $response = Invoke-RestMethod -Uri $url -Headers $headers -Method Get
+          $response | ConvertTo-Json -Depth 100 | Out-File -FilePath pullRequestComments.json
+          Write-Output "##vso[task.setvariable variable=pullRequestComments]$(Get-Content -Raw -Path pullRequestComments.json)"
+    - task: PowerShell@2
+      displayName: 'Extract Owner Comments'
+      inputs:
+        targetType: 'inline'
+        script: |
+          $prDetails = "$(pullRequestDetails)" | ConvertFrom-Json
+          $prComments = "$(pullRequestComments)" | ConvertFrom-Json
+          $ownerId = $prDetails.createdBy.id
+          $ownerComments = ""
+          foreach ($thread in $prComments.value) {
+            foreach ($comment in $thread.comments) {
+              if ($comment.author.id -eq $ownerId) {
+                $ownerComments += "Comment by $($comment.author.displayName): $($comment.content)`n"
+              }
+            }
+          }
+          Write-Output "##vso[task.setvariable variable=ownerCommentsExtracted]$ownerComments"
+    - task: SendEmail@1
+      displayName: 'Send Email with Owner Comments'
+      inputs:
+        To: 'vaishnaviaddaguduru@gmail.com'
+        From: 'vaishnaviaddaguduru@gmail.com'
+        Subject: 'Pull Request Owner Comments'
+        Body: |
+          Pull Request Owner Comments:
+          $(ownerCommentsExtracted)
+        BodyAsHtml: true
+        AddAttachment: false
+        SmtpServer: 'smtp.gmail.com'
+        SmtpPort: '465'
