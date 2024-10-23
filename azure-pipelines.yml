@@ -1,0 +1,64 @@
+trigger:
+- develop  # Adjust this to the branch you want to trigger the pipeline
+- master
+resources:
+  repositories:
+    - repository: GitHubRepo
+      type: GitHub
+      ref: develop
+      endpoint: github.com
+      name: vaishnaviaddaguduru/newrepo
+#############################Start Build##############################################################################################################
+stages:
+
+- stage: Build_Application_Code
+  pool:
+    vmImage: windows-latest
+  jobs:
+  - job: Build
+    steps:
+    - checkout: self # checking out Azure repo
+    - checkout: GitHubRepo # checking out GitHub repo
+    - task: NuGetToolInstaller@1
+      displayName: 'Use NuGet '
+      inputs:
+        checkLatest: true
+    - task: NuGetCommand@2
+      displayName: NuGet restore
+      inputs:
+        solution: '**\*.sln'
+        feedRestore: 6e71a2a8-767c-4302-b882-ab079d2636ff/d0f7ac4a-ac19-4a16-9cd9-bac84c3e1431
+    - task: VSBuild@1
+      displayName: Build
+      inputs:
+        msbuildArgs: /p:DeployOnBuild=true /p:DeployDefaultTarget=WebPublish /p:WebPublishMethod=FileSystem /p:publishUrl="$(Agent.TempDirectory)\WebAppContent\\"
+        clean: true
+    - task: ArchiveFiles@2
+      displayName: Archive
+      inputs:
+        rootFolderOrFile: $(Agent.TempDirectory)/WebAppContent
+        includeRootFolder: false
+    - task: PublishPipelineArtifact@1
+      displayName: Publish Pipeline Artifact
+      inputs:
+        artifactName: appcode
+
+- stage: Deploy_Application_Code_To_Dev_Environment
+  dependsOn: Build_Application_Code
+  pool:
+    name: Advisory-All-Pipelines
+  jobs:
+  - deployment: 'DeployToDev'
+    environment: 'Dev_Environment'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - task: DownloadPipelineArtifact@2
+            displayName: Download Pipeline Artifact
+            inputs:
+              project: 'AdvCompliance'
+              pipeline: 82
+              runVersion: specific
+              runId: 2294
+              artifact: appcode
