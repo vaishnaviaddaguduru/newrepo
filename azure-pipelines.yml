@@ -6,7 +6,7 @@ resources:
     - repository: GitHubRepo
       type: GitHub
       ref: develop
-      endpoint: github.com
+      endpoint: github.com_vaishnaviaddaguduru
       name: vaishnaviaddaguduru/newrepo
 #############################Start Build##############################################################################################################
 stages:
