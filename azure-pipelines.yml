@@ -46,7 +46,7 @@ stages:
 - stage: Deploy_Application_Code_To_Dev_Environment
   dependsOn: Build_Application_Code
   pool:
-    name: Advisory-All-Pipelines
+    name: windows-latest
   jobs:
   - deployment: 'DeployToDev'
     environment: 'Dev_Environment'
